@@ -72,8 +72,32 @@ class TitanicModel:
         t= self.embarked_norminal(t[0],t[1])
         print('--------------------------------3. 신분 편집:문자열을 숫자로------------------------------------')
         t=self.title_norminal(t[0],t[1])
+        print('--------------------------------4. Name,PassingerId삭제------------------------------------')
 
+        t = self.drop_feature(t[0], t[1], 'Name')
+        #테스트 프로세스에 사용하기위해 남겨둔다. 즉 정확도
+
+        self._test_id = test['PassengerId']
+        t = self.drop_feature(t[0], t[1], 'PassengerId')
+        print('--------------------------------5. Age 편집------------------------------------')
+        t=self.age_ordinal(t[0],t[1])
+
+        print('--------------------------------6. Fare 편집------------------------------------')
+        t = self.fare_ordinal(t[0], t[1])
+        print('--------------------------------7. Fare 편집------------------------------------')
+        #Fare편집이 끝났음으로 Fare컬럼 삭제
+        t = self.drop_feature(t[0], t[1], 'Fare')
+        print('--------------------------------8. Sex normial 편집------------------------------------')
+        t = self.sex_nominal(t[0], t[1])
+        t[1] = t[1].fillna({'FareBand':1})
+        a = self.null_sum(t[1])
+        print('널의 수량 {} 개'.format(a))
+        self._test =t[1]
         return t[0]
+
+    @staticmethod
+    def null_sum(train)-> int:
+        return train.isnull().sum()
 
     @staticmethod
     def drop_feature(train,test,feature) ->[]:
@@ -118,6 +142,46 @@ class TitanicModel:
         for dataset in combine:
             dataset['Title'] = dataset['Title'].map(title_mapping)
             dataset['Title'] = dataset['Title'].fillna(0)
+        return [train,test]
 
+    @staticmethod
+    def sex_nominal(train,test) -> []:
+        combine = [train, test]
+        sex_mapping = {'male':0,'female':1}
+        for dataset in combine:
+            dataset['Sex'] =  dataset['Sex'].map(sex_mapping)
 
         return [train,test]
+
+    @staticmethod
+    def age_ordinal(train, test) -> []:
+        train['Age'] = train['Age'].fillna(-0.5)
+        test['Age'] = test['Age'].fillna(-0.5)
+        #연령대별로 나누기
+        bins=[-1,0,5,12,18,24,35,60,np.inf]
+        labels=['Unknown','Baby','Child','Teenager','Student','Young Adult','Adult','Senior']
+
+        train['AgeGroup'] = pd.cut(train['Age'],bins,labels=labels)#cut
+        test['AgeGroup'] = pd.cut(test['Age'], bins, labels=labels)  # cut
+
+        age_title_mapping = {0:'Unknown',1:'Baby',2:'Child',3:'Teenager',4:'Student',5:'Young Adult',6:'Adult',7:'Senior'}
+        for x in range(len(train['AgeGroup'])):
+            if train['AgeGroup'][x] == 'Unknown':
+                train['AgeGroup'][x] = age_title_mapping[train['Title'][x]]
+
+        for x in range(len(test['AgeGroup'])):
+            if test['AgeGroup'][x] == 'Unknown':
+                test['AgeGroup'][x] = age_title_mapping[test['Title'][x]]
+
+
+        age_mapping = {'Unknown':0,'Baby':1,'Child':2,'Teenager':3,'Student':4,'Young Adult':5,'Adult':6,'Senior':7}
+        train['AgeGroup'] =train['AgeGroup'].map(age_mapping)
+        test['AgeGroup'] = test['AgeGroup'].map(age_mapping)
+        print(train['AgeGroup'].head())
+        return [train, test]
+
+    @staticmethod
+    def fare_ordinal(train,test) ->[]:
+        train['FareBand'] =pd.qcut(train['Fare'],4,labels={1,2,3,4})
+        test['FareBand'] = pd.qcut(test['Fare'], 4, labels={1, 2, 3, 4})
+        return [train, test]
